@@ -10,54 +10,56 @@ const session = require('express-session')
 const flash = require('connect-flash')
 require("./models/Postagem")
 const Postagem = mongoose.model("postagens")
+require("./models/Categoria")
+const Categoria = mongoose.model("categorias")
 
 // Configurações
-    // Sessão
-    app.use(session({
-        secret: "cursodenode",
-        resave: true,
-        saveUninitialized: true
-    }))
-    app.use(flash())
+// Sessão
+app.use(session({
+    secret: "cursodenode",
+    resave: true,
+    saveUninitialized: true
+}))
+app.use(flash())
 
-    // Middleware
-    app.use((req, res, next) => {
-        res.locals.success_msg = req.flash("success_msg")
-        res.locals.error_msg = req.flash('error_msg')
-        next()
-    })
+// Middleware
+app.use((req, res, next) => {
+    res.locals.success_msg = req.flash("success_msg")
+    res.locals.error_msg = req.flash('error_msg')
+    next()
+})
 
-    // Body Parser
-    app.use(bodyParser.urlencoded({extended: true}))
-    app.use(bodyParser.json())
+// Body Parser
+app.use(bodyParser.urlencoded({ extended: true }))
+app.use(bodyParser.json())
 
-    //Handlebars
-    app.engine('handlebars', handlebars({defaultLayout: 'main'}))
-    app.set('view engine', 'handlebars')
+//Handlebars
+app.engine('handlebars', handlebars({ defaultLayout: 'main' }))
+app.set('view engine', 'handlebars')
 
-    // Public
-    app.use(express.static(path.join(__dirname, "public")))
+// Public
+app.use(express.static(path.join(__dirname, "public")))
 
-    app.use((req, res, next) =>{
-        console.log('Oi eu sou um middleware')
-        next()
-    })
+app.use((req, res, next) => {
+    console.log('Oi eu sou um middleware')
+    next()
+})
 
-    // Mongoose
-    mongoose.Promise = global.Promise;
-    mongoose.connect('mongodb://localhost/blogapp', {
-        useNewUrlParser: true,
-        useUnifiedTopology:true,
-    }).then(() => {
-        console.log('Conectado ao mongo')
-    }).catch((err) => {
-        console.log('Erro ao se conectar: ' + err)
-    })
+// Mongoose
+mongoose.Promise = global.Promise;
+mongoose.connect('mongodb://localhost/blogapp', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true,
+}).then(() => {
+    console.log('Conectado ao mongo')
+}).catch((err) => {
+    console.log('Erro ao se conectar: ' + err)
+})
 
 // Rotas
 app.get('/', (req, res) => {
-    Postagem.find().lean().populate("categoria").sort({data: "desc"}).then((postagens) => {
-        res.render("index", {postagens: postagens})
+    Postagem.find().lean().populate("categoria").sort({ data: "desc" }).then((postagens) => {
+        res.render("index", { postagens: postagens })
     }).catch((err) => {
         req.flash("error_msg", "Houve um erro interno")
         res.redirect("/404")
@@ -65,15 +67,47 @@ app.get('/', (req, res) => {
 })
 
 app.get("/postagem/:slug", (req, res) => {
-    Postagem.findOne({slug: req.params.slug}).lean().then((postagem) => {
-        if(postagem){
-            res.render("postagem/index", {postagem: postagem})
-        }else{
+    Postagem.findOne({ slug: req.params.slug }).lean().then((postagem) => {
+        if (postagem) {
+            res.render("postagem/index", { postagem: postagem })
+        } else {
             req.flash("error_msg", "Esta postagem não existe")
             res.redirect("/")
         }
     }).catch((err) => {
         req.flash("error_msg", "Houve um erro interno")
+        res.redirect("/")
+    })
+})
+
+app.get('/categorias', (req, res) => {
+    Categoria.find().lean().then((categorias) => {
+        res.render("categorias/index", { categorias: categorias })
+    }).catch((err) => {
+        req.flash("error_msg", "Houve um erro ao listar as categorias!");
+        res.redirect("/")
+    })
+})
+
+app.get("/categorias/:slug", (req, res) => {
+    Categoria.findOne({ slug: req.params.slug }).lean().then((categoria) => {
+
+        if (categoria) {
+            Postagem.find({ categoria: categoria._id }).lean().then((postagens) => {
+                res.render("categorias/postagens", { postagens: postagens, categoria: categoria })
+
+            }).catch((err) => {
+                req.flash("error_msg", "Houve um erro ao listar os posts!")
+                res.redirect("/")
+            })
+
+        } else {
+            req.flash("error_msg", "Esta categoria não existe")
+            res.redirect("/")
+        }
+
+    }).catch((err) => {
+        req.flash("error_msg", "Houve um erro interno ao carregar a página desta categoria!")
         res.redirect("/")
     })
 })
